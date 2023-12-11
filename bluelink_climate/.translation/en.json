@@ -1,0 +1,20 @@
+{
+    "config": {
+      "step": {
+        "user": {
+          "title": "Configure Bluelink Climate",
+          "data": {
+            "host": "Host",
+            "port": "Port",
+            "api_key": "API Key",
+            "air_temperature": "Air Temperature"
+          }
+        }
+      },
+      "error": {
+        "auth": "Authentication failed",
+        "invalid_path": "Invalid path"
+      }
+    }
+  }
+  

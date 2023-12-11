@@ -1,0 +1,6 @@
+{
+  "domain": "bluelink_climate",
+  "name": "Bluelink Climate Custom Component",
+  "version": "0.1.0",
+  "config_flow": true
+}
