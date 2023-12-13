@@ -4,16 +4,17 @@
       "user": {
         "title": "Bluelink Integration",
         "data": {
-          "host": "Host (need valid SSL cert for HTTPS)",
-          "port": "Port",
-          "api_key": "API Key"
+          "username": "Username(email)",
+          "password": "Password",
+          "pin": "PIN",
+          "vin": "VIN"
         }
       }
     },
     "error": {
       "cannot_connect": "Failed to connect",
-      "invalid_ssl_certificate": "Invalid SSL Certificate served by the specified host",
-      "invalid_auth": "Invalid authentication",
+      "invalid_auth": "Invalid authentication credentials",
+      "invalid_vin": "Invalid VIN or vehicle not registered",
       "unknown": "Unknown error occurred"
     },
     "title": "Bluelink"

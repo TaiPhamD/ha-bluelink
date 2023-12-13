@@ -5,6 +5,7 @@ from .const import DOMAIN  # Make sure DOMAIN matches your integration's domain
 from .climate import BluelinkClimateControl
 from .switch import BluelinkClimateSwitch
 from .shared_data import SharedData
+from .bluelink_api import BluelinkAPI
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up bluelink_climate from a config entry."""
@@ -25,14 +26,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             host=entry.data["host"],
             port=entry.data["port"],    
             shared_data=shared_data,
+            BluelinkAPI(
+                username=entry.data["username"],
+                password=entry.data["password"],
+                pin=entry.data["pin"],
+                vin=entry.data["vin"]
+                )
         )
     }
 
-    # Forward the setup to the switch platform
+    # Forward the setup to the switch entity
     hass.async_create_task(
         hass.config_entries.async_forward_entry_setup(entry, "switch"),
     )   
-
+    # Forward the setup to the climate entity
     hass.async_create_task(
         hass.config_entries.async_forward_entry_setup(entry, "climate")
     )
