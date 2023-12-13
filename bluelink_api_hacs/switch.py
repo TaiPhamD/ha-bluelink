@@ -53,6 +53,7 @@ class BluelinkClimateSwitch(SwitchEntity):
             _LOGGER.warning(
                 "Switch recently toggled, please wait before toggling again."
             )
+            self.schedule_update_ha_state()
             return  # Exit the method to prevent toggling
         self._bluelink_api.start_climate(self._shared_data.get_data())
         self._is_on = True
@@ -69,6 +70,7 @@ class BluelinkClimateSwitch(SwitchEntity):
             _LOGGER.warning(
                 "Switch recently toggled, please wait before toggling again."
             )
+            self.schedule_update_ha_state()
             return  # Exit the method to prevent toggling
         self._bluelink_api.stop_climate()
         self._cancel_auto_off_timer()
