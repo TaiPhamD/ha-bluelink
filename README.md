@@ -2,6 +2,7 @@
 HA custom component for bluelink climate control. This is to be used with: https://github.com/TaiPhamD/bluelink_proxy_server. It currently only supports Farenheit in the controls which I plan to add support for changing to Celsius in the future.
 
 ## Prerequisites
+- https://www.home-assistant.io server installed
 - setup [blue link proxy](https://github.com/TaiPhamD/bluelink_proxy_server) with a valid SSL cert (no self signed)
 
 ## Install HA custom component
