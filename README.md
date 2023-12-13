@@ -6,7 +6,7 @@ HA custom component for bluelink climate control
 
 ## Install HA custom component
 
-Clone this repository then copy the bluelink_climate folder to your home-assistant config/custom_components folder (create one if you don't have one under /config). Restart Home Assistant, and then the integration can be added and configured through the native integration setup UI (search for bluelink).
+Clone this repository then copy the bluelink_api_hacs folder to your home-assistant config/custom_components folder (create a custom_components folder if you don't have one under /config). Restart Home Assistant, and then the integration can be added and configured through the native integration setup UI (search for bluelink).
 
 - The config for this integration requires the following:
     - username: the username of your bluelink account
