@@ -15,7 +15,11 @@ Clone this repository then copy the bluelink_api_hacs folder to your home-assist
     - vin: the vin of your vehicle
  
 
+## Screenshots
 
-<img width="1016" alt="Screenshot 2023-12-12 at 10 14 23 PM" src="https://github.com/TaiPhamD/ha-bluelink/assets/10516699/800594f7-6269-4460-b287-952196558c12">
+
+<img width="512" alt="Home Assistant Integration Setup" src="https://github.com/TaiPhamD/ha-bluelink/assets/10516699/800594f7-6269-4460-b287-952196558c12">
 
 
+
+<img width="256" alt="Homekit UI" src="https://github.com/TaiPhamD/ha-bluelink/assets/10516699/5ffca264-9709-4fec-806f-30829abc3b6a">
