@@ -111,7 +111,7 @@ class BluelinkAPI:
         response = self._session.post(url, headers=headers, json=payload)
 
         if response.status_code != 200:
-            print(f"Error refreshing token: {response.status_code}")
+            _LOGGER.warning(f"Error refreshing token: {response.status_code}")
             return None
 
         data = response.json()
@@ -166,7 +166,7 @@ class BluelinkAPI:
 
     def start_climate(self, temp=72):
         if not self._refresh_token_if_needed():
-            _LOGGER.warning( "Authentication failed. Unable to start climate control.")
+            _LOGGER.warning("Authentication failed. Unable to start climate control.")
 
         url = f"{BASE_URL}/ac/v2/evc/fatc/start"
         headers = self._set_request_headers()
