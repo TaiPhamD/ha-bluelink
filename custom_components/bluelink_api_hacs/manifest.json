@@ -1,6 +1,9 @@
 {
   "domain": "bluelink_api_hacs",
-  "name": "Bluelink API Custom Component",
+  "documentation": "https://github.com/TaiPhamD/ha-bluelink/blob/main/README.md",
+  "issue_tracker": "https://github.com/TaiPhamD/ha-bluelink/issues",
+  "codeowners": ["@TaiPhamD"],
+  "name": "Bluelink API Custom Component",  
   "version": "0.1.0",
   "config_flow": true
 }
