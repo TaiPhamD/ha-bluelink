@@ -29,7 +29,16 @@ Clone this repository then copy the bluelink_api_hacs folder to your home-assist
     - password: the password of your bluelink account
     - pin: the pin of your bluelink account
     - vin: the vin of your vehicle
- 
+
+## Usage
+
+1. Setting the Desired Temperature: Adjust the climate control device to your preferred temperature. The default setting is 72°F.
+2. Activating Climate Control:
+   - To start the climate control, use the provided switch. This will initiate the climate control at the temperature set in step 1.
+   - Note that the switch will automatically return to the "off" position in two scenarios:
+       - Manually turning it off.
+       - Automatically after 10 minutes, as Bluelink's system automatically deactivates climate control after this duration.
+   - To ensure smooth operation and prevent errors from Bluelink, the system restricts rapid toggling of the switch. There must be a minimum interval of 60 seconds between each toggle.
 
 ## Screenshots
 
