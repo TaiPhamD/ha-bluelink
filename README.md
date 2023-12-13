@@ -13,5 +13,9 @@ Clone this repository then copy the bluelink_api_hacs folder to your home-assist
     - password: the password of your bluelink account
     - pin: the pin of your bluelink account
     - vin: the vin of your vehicle
+ 
+
+
+<img width="1016" alt="Screenshot 2023-12-12 at 10 14 23 PM" src="https://github.com/TaiPhamD/ha-bluelink/assets/10516699/800594f7-6269-4460-b287-952196558c12">
 
 
