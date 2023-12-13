@@ -1,6 +1,5 @@
-import requests
 import logging
-import json
+import time
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
