@@ -1,5 +1,5 @@
 # Home-Assistant Custom component  
-HA custom component for bluelink climate control
+HA custom component for bluelink climate control. Currently, it has only been tested with an IONIQ 5 (USA). 
 
 ## Prerequisites
 - https://www.home-assistant.io server installed
