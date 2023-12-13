@@ -9,4 +9,4 @@ BASE_URL = "https://api.telematics.hyundaiusa.com"
 BLUELINK_CLIMATE_MAX_TIMER = 600
 
 # prevent bluelink switch from toggle too quick (Hyundai's API will reject if calling it in quick successions)
-BLUELINK_SWITCH_TOGGLE_TIMEOUT = 60  
+BLUELINK_SWITCH_TOGGLE_TIMEOUT = 60

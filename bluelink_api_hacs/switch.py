@@ -23,11 +23,10 @@ async def async_setup_entry(
 
 
 class BluelinkClimateSwitch(SwitchEntity):
-    def __init__(self, host, port, api_key, shared_data, bluelink_api):
+    def __init__(self, shared_data, vin, bluelink_api):
         self._is_on = False
         # create unique identifier
-        base_url = get_base_host(host)
-        self._unique_identifier = f"{base_url}_bluelink_switch"
+        self._unique_identifier = f"{vin}_bluelink_switch"
         self._shared_data = shared_data
         self._bluelink_api = bluelink_api
         self._auto_off_timer = None
@@ -51,21 +50,26 @@ class BluelinkClimateSwitch(SwitchEntity):
     def turn_on(self, **kwargs):
         """Turn the switch on."""
         if time.time() - self._last_toggle_time < self._cooldown_period:
-            _LOGGER.warning("Switch recently toggled, please wait before toggling again.")
+            _LOGGER.warning(
+                "Switch recently toggled, please wait before toggling again."
+            )
             return  # Exit the method to prevent toggling
         self._bluelink_api.start_climate(self._shared_data.get_data())
         self._is_on = True
         # Schedule the switch to turn off after 10 minutes
-        self._auto_off_timer = async_call_later(self.hass, BLUELINK_CLIMATE_MAX_TIMER, self._auto_turn_off)
+        self._auto_off_timer = async_call_later(
+            self.hass, BLUELINK_CLIMATE_MAX_TIMER, self._auto_turn_off
+        )
         self.schedule_update_ha_state()
         self._last_toggle_time = time.time()
-
 
     def turn_off(self, **kwargs):
         """Turn the switch off."""
         if time.time() - self._last_toggle_time < self._cooldown_period:
-            _LOGGER.warning("Switch recently toggled, please wait before toggling again.")
-            return  # Exit the method to prevent toggling          
+            _LOGGER.warning(
+                "Switch recently toggled, please wait before toggling again."
+            )
+            return  # Exit the method to prevent toggling
         self._bluelink_api.stop_climate()
         self._cancel_auto_off_timer()
         self._is_on = False
