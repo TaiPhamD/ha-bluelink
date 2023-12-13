@@ -1,0 +1,21 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Bluelink Integration",
+        "data": {
+          "host": "Host (need valid SSL cert for HTTPS)",
+          "port": "Port",
+          "api_key": "API Key"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect",
+      "invalid_ssl_certificate": "Invalid SSL Certificate served by the specified host",
+      "invalid_auth": "Invalid authentication",
+      "unknown": "Unknown error occurred"
+    },
+    "title": "Bluelink"
+  }
+}

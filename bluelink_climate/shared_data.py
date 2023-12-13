@@ -10,10 +10,10 @@ class SharedData:
         data = await self.storage.async_load()
         if data:      
             self.temperature = data.get('temperature')
-            _LOGGER.warning("Found stored temp: ", self.temperature)
+            _LOGGER.info("Bluelink Climate: found previous stored temp: ", self.temperature)
             # Load other data fields as needed
         else:
-            _LOGGER.warning("Did not find store temperature from storage, setting to default 72")
+            _LOGGER.info("Did not find store temperature from storage, setting to default 72 F")
             self.temperature = 72
 
     async def store_data(self, temperature):
@@ -21,7 +21,6 @@ class SharedData:
         data_to_save = {'temperature': self.temperature}
         # Include other data fields as needed
         await self.storage.async_save(data_to_save)
-        #_LOGGER.warning("storing temperature: ", data_to_save.temperature)
 
     def get_data(self):
         return self.temperature
