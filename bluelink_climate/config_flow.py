@@ -16,7 +16,7 @@ _LOGGER = logging.getLogger(__name__)
 DATA_SCHEMA = vol.Schema({
     vol.Required(CONF_HOST, default="https://your_domain.com"): cv.string,
     vol.Required(CONF_PORT, default=443): cv.port,
-    vol.Required("api_key", default="xxxxxxx"): cv.string,
+    vol.Required("api_key"): cv.string,
 })
 
 def is_valid_ssl_cert(host, port):
