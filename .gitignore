@@ -6,6 +6,7 @@
 # website: http://jupyter.org/
 
 .DS_Store
+test.ipynb
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
 

@@ -1,0 +1,6 @@
+{
+  "domain": "bluelink_api_hacs",
+  "name": "Bluelink API Custom Component",
+  "version": "0.1.0",
+  "config_flow": true
+}
