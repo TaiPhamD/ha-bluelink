@@ -37,14 +37,14 @@ def get_legacy_session():
 
 
 class BluelinkAPI:
-    def __init__(self, username, password, pin):
+    def __init__(self, username, password, pin, auth=None):
         self._client_id = "m66129Bb-em93-SPAHYN-bZ91-am4540zp19920"
         self._client_secret = "v558o935-6nne-423i-baa8"
         self._session = get_legacy_session()
         self._username = username
         self._password = password
         self._pin = pin
-        self._auth = None
+        self._auth = auth
 
     def login(self):
         url = f"{BASE_URL}/v2/ac/oauth/token"
@@ -72,30 +72,19 @@ class BluelinkAPI:
             "pin": self._pin,
         }
 
-        # enrollment_details = self._get_enrollment_details(auth)
-        # reg_id = None
-        # for vehicle in enrollment_details["enrolledVehicleDetails"]:
-        #     if vehicle["vehicleDetails"]["vin"] == self._vin:
-        #         reg_id = vehicle["vehicleDetails"]["regid"]
-
-        # auth["reg_id"] = reg_id
         self._auth = auth
+        return auth
 
-        # return auth
-
-    def set_reg_id(self, enrollment_details, vin):
-        #enrollment_details = self.get_enrollment_details()
-        reg_id = None
-        for vehicle in enrollment_details["enrolledVehicleDetails"]:
-            if vehicle["vehicleDetails"]["vin"] == vin:
-                reg_id = vehicle["vehicleDetails"]["regid"]
-
-        self._auth["reg_id"] = reg_id
-
-    def get_tuple_vehicle(self, enrollment_details):
+    def get_vehicles(self, enrollment_details):
         vehicles = []
         for vehicle in enrollment_details["enrolledVehicleDetails"]:
-            vehicles.append((vehicle["vehicleDetails"]["vin"], vehicle["vehicleDetails"]["nickname"]))
+            data = {
+                "vin": vehicle["vehicleDetails"]["vin"],
+                "reg_id": vehicle["vehicleDetails"]["regid"],
+                "nickname": vehicle["vehicleDetails"]["nickName"],
+                "gen": vehicle["vehicleDetails"]["vehicleGeneration"],
+            }
+            vehicles.append(data)
         return vehicles
 
     def get_enrollment_details(self):
@@ -111,6 +100,10 @@ class BluelinkAPI:
         response.raise_for_status()
 
         return response.json()
+
+    def store_vehicle_info(self, vin, reg_id):
+        self._auth["vin"] = vin
+        self._auth["reg_id"] = reg_id
 
     def _refresh_token(self):
         url = f"{BASE_URL}/v2/ac/oauth/token/refresh"

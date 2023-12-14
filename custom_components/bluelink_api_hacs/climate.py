@@ -25,14 +25,14 @@ async def async_setup_entry(
 
 
 class BluelinkClimateControl(ClimateEntity):
-    def __init__(self, shared_data, reg_id):
+    def __init__(self, shared_data, vin):
         self._shared_data = shared_data
         self._temperature = self._shared_data.get_data()
         self._attr_hvac_mode = HVACMode.HEAT_COOL  # Set default to 'auto' mode
         self._attr_hvac_modes = [HVACMode.HEAT_COOL, HVACMode.OFF]
         self._attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
         # create unique identifier
-        self._unique_identifier = f"{reg_id}_bluelink_climate"
+        self._unique_identifier = f"{vin}_bluelink_climate"
         self._auto_off_timer = None
 
     @property

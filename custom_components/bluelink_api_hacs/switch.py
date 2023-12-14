@@ -23,10 +23,10 @@ async def async_setup_entry(
 
 
 class BluelinkClimateSwitch(SwitchEntity):
-    def __init__(self, shared_data, reg_id, bluelink_api):
+    def __init__(self, shared_data, vin, bluelink_api):
         self._is_on = False
         # create unique identifier
-        self._unique_identifier = f"{reg_id}_bluelink_switch"
+        self._unique_identifier = f"{vin}_bluelink_switch"
         self._shared_data = shared_data
         self._bluelink_api = bluelink_api
         self._auto_off_timer = None
