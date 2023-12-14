@@ -37,14 +37,13 @@ def get_legacy_session():
 
 
 class BluelinkAPI:
-    def __init__(self, username, password, pin, vin):
+    def __init__(self, username, password, pin):
         self._client_id = "m66129Bb-em93-SPAHYN-bZ91-am4540zp19920"
         self._client_secret = "v558o935-6nne-423i-baa8"
         self._session = get_legacy_session()
         self._username = username
         self._password = password
         self._pin = pin
-        self._vin = vin
         self._auth = None
 
     def login(self):
@@ -71,24 +70,38 @@ class BluelinkAPI:
             "expires_at": expires_at,
             "username": data["username"],
             "pin": self._pin,
-            "vin": self._vin,
         }
 
-        enrollment_details = self._get_enrollment_details(auth)
-        reg_id = None
-        for vehicle in enrollment_details["enrolledVehicleDetails"]:
-            if vehicle["vehicleDetails"]["vin"] == self._vin:
-                reg_id = vehicle["vehicleDetails"]["regid"]
+        # enrollment_details = self._get_enrollment_details(auth)
+        # reg_id = None
+        # for vehicle in enrollment_details["enrolledVehicleDetails"]:
+        #     if vehicle["vehicleDetails"]["vin"] == self._vin:
+        #         reg_id = vehicle["vehicleDetails"]["regid"]
 
-        auth["reg_id"] = reg_id
+        # auth["reg_id"] = reg_id
         self._auth = auth
 
-        return auth
+        # return auth
 
-    def _get_enrollment_details(self, auth):
-        url = f"{BASE_URL}/ac/v2/enrollment/details/{auth['username']}"
+    def set_reg_id(self, enrollment_details, vin):
+        #enrollment_details = self.get_enrollment_details()
+        reg_id = None
+        for vehicle in enrollment_details["enrolledVehicleDetails"]:
+            if vehicle["vehicleDetails"]["vin"] == vin:
+                reg_id = vehicle["vehicleDetails"]["regid"]
+
+        self._auth["reg_id"] = reg_id
+
+    def get_tuple_vehicle(self, enrollment_details):
+        vehicles = []
+        for vehicle in enrollment_details["enrolledVehicleDetails"]:
+            vehicles.append((vehicle["vehicleDetails"]["vin"], vehicle["vehicleDetails"]["nickname"]))
+        return vehicles
+
+    def get_enrollment_details(self):
+        url = f"{BASE_URL}/ac/v2/enrollment/details/{self._auth['username']}"
         headers = {
-            "access_token": auth["access_token"],
+            "access_token": self._auth["access_token"],
             "User-Agent": "okhttp/3.12.0",
             "client_id": self._client_id,
             "includeNonConnectedVehicles": "Y",

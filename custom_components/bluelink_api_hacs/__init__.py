@@ -19,7 +19,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         username=entry.data["username"],
         password=entry.data["password"],
         pin=entry.data["pin"],
-        vin=entry.data["vin"],
     )
 
     await hass.async_add_executor_job(bluelink_api.login)
@@ -28,12 +27,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Initialize and store the switch instance
         "switch": BluelinkClimateSwitch(
             shared_data=shared_data,
-            vin=entry.data["vin"],
+            reg_id=entry.data["selected_vehicle_reg_id"],
             bluelink_api=bluelink_api,
         ),
         "climate": BluelinkClimateControl(
             shared_data=shared_data,
-            vin=entry.data["vin"],
+            reg_id=entry.data["selected_vehicle_reg_id"],
         ),
     }
 
