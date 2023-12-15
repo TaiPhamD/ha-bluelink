@@ -27,8 +27,7 @@ Clone this repository then copy the bluelink_api_hacs folder to your home-assist
 - The config for this integration requires the following:
     - username: the username of your bluelink account
     - password: the password of your bluelink account
-    - pin: the pin of your bluelink account
-    - vin: the vin of your vehicle
+- Once you log in then it will allow you to select a vehicle associated with your account. 
 
 ## Usage
 
