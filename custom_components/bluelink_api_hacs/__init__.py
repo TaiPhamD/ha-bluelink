@@ -10,6 +10,7 @@ from .shared_data import SharedData
 from .bluelink_api import BluelinkAPI
 from .config_flow import BluelinkConfigFlow  # Import your config flow
 
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up bluelink_climate from a config entry."""
 
@@ -21,9 +22,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         username=entry.data["username"],
         password=entry.data["password"],
         pin=entry.data["pin"],
-        auth=entry.data["auth"]
+        auth=entry.data["auth"],
     )
-    bluelink_api.store_vehicle_info(entry.data["selected_vehicle_vin"], entry.data["selected_vehicle_reg_id"])
+    bluelink_api.store_vehicle_info(
+        entry.data["selected_vehicle_vin"], entry.data["selected_vehicle_reg_id"]
+    )
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
         "switch": BluelinkClimateSwitch(
@@ -46,13 +49,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     return True
 
+
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
 
     unload_ok = all(
         await asyncio.gather(
             hass.config_entries.async_forward_entry_unload(entry, Platform.SWITCH),
-            hass.config_entries.async_forward_entry_unload(entry, Platform.CLIMATE)
+            hass.config_entries.async_forward_entry_unload(entry, Platform.CLIMATE),
         )
     )
 

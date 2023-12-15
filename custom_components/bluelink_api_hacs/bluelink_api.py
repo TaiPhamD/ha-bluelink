@@ -11,6 +11,7 @@ import ssl
 import json
 import time
 
+
 class CustomHttpAdapter(requests.adapters.HTTPAdapter):
     # "Transport adapter" that allows us to use custom ssl_context.
 
@@ -70,7 +71,7 @@ class BluelinkAPI:
             "username": data["username"],
             "pin": self._pin,
         }
-        
+
         self._auth = auth
         return auth
 
@@ -99,8 +100,8 @@ class BluelinkAPI:
         response.raise_for_status()
 
         return response.json()
-    
-    def store_vehicle_info(self,vin,reg_id):
+
+    def store_vehicle_info(self, vin, reg_id):
         self._auth["vin"] = vin
         self._auth["reg_id"] = reg_id
 
