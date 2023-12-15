@@ -3,20 +3,55 @@
     "step": {
       "user": {
         "title": "Bluelink Integration",
+        "description": "Enter your Bluelink credentials.",
         "data": {
-          "username": "Username(email)",
+          "username": "Username (email)",
           "password": "Password",
-          "pin": "PIN",
-          "vin": "VIN"
+          "pin": "PIN"
+        }
+      },       
+      "select_vehicle": {
+        "title": "Select Vehicle",
+        "description": "Select your vehicle from the list.",
+        "data": {
+          "vehicle": "Vehicle"
         }
       }
     },
     "error": {
-      "cannot_connect": "Failed to connect",
+      "cannot_connect": "Failed to connect. Please check your credentials and try again.",
       "invalid_auth": "Invalid authentication credentials",
-      "invalid_vin": "Invalid VIN or vehicle not registered",
+      "invalid_vehicle": "Invalid vehicle selection",
+      "unknown": "Unknown error occurred",
+      "already_configured": "Vehicle already exists"
+    },
+    "title": "Bluelink"
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Bluelink Integration",
+        "description": "Enter your Bluelink credentials.",
+        "data": {
+          "username": "Username (email)",
+          "password": "Password",
+          "pin": "PIN"
+        }
+      },       
+      "select_vehicle": {
+        "title": "Select Vehicle",
+        "description": "Select your vehicle from the list.",
+        "data": {
+          "vehicle": "Vehicle"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect. Please check your credentials and try again.",
+      "invalid_auth": "Invalid authentication credentials",
+      "invalid_vehicle": "Invalid vehicle selection",
       "unknown": "Unknown error occurred"
     },
     "title": "Bluelink"
-  }
+  } 
 }
