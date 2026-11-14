@@ -1,9 +1,16 @@
 {
   "domain": "bluelink_api_hacs",
+  "name": "Bluelink Climate Control",
+  "codeowners": [
+    "@TaiPhamD"
+  ],
+  "config_flow": true,
   "documentation": "https://github.com/TaiPhamD/ha-bluelink/blob/main/README.md",
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/TaiPhamD/ha-bluelink/issues",
-  "codeowners": ["@TaiPhamD"],
-  "name": "Bluelink API Custom Component",  
-  "version": "0.1.0",
-  "config_flow": true
+  "requirements": [
+    "requests==2.34.2"
+  ],
+  "version": "0.2.0"
 }

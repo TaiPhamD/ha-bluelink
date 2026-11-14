@@ -2,56 +2,65 @@
   "config": {
     "step": {
       "user": {
-        "title": "Bluelink Integration",
-        "description": "Enter your Bluelink credentials.",
+        "title": "Connect to Bluelink",
+        "description": "Enter your Hyundai USA account details. Your remote command PIN is separate from an SMS verification code.",
         "data": {
-          "username": "Username (email)",
+          "username": "Email address",
           "password": "Password",
-          "pin": "PIN"
+          "pin": "Bluelink remote command PIN"
         }
-      },       
+      },
       "select_vehicle": {
-        "title": "Select Vehicle",
-        "description": "Select your vehicle from the list.",
+        "title": "Select your vehicle",
         "data": {
           "vehicle": "Vehicle"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Sign in to Bluelink again",
+        "description": "Your saved credentials could not renew the token. Sign in with an account that contains the existing vehicle.",
+        "data": {
+          "username": "Email address",
+          "password": "Password",
+          "pin": "Bluelink remote command PIN"
+        }
+      },
+      "reconfigure": {
+        "title": "Update Bluelink credentials",
+        "description": "Update the account details for your existing vehicle.",
+        "data": {
+          "username": "Email address",
+          "password": "Password",
+          "pin": "Bluelink remote command PIN"
         }
       }
     },
     "error": {
-      "cannot_connect": "Failed to connect. Please check your credentials and try again.",
-      "invalid_auth": "Invalid authentication credentials",
-      "invalid_vehicle": "Invalid vehicle selection",
-      "unknown": "Unknown error occurred",
-      "already_configured": "Vehicle already exists"
+      "cannot_connect": "Unable to connect to Hyundai. Please try again.",
+      "invalid_auth": "Hyundai rejected the credentials. Check your email address and password.",
+      "invalid_vehicle": "Select a vehicle from the list.",
+      "no_vehicles": "No enrolled vehicles were found for this account.",
+      "vehicle_not_found": "The existing vehicle was not found in this account. Sign in with the account that owns it.",
+      "unknown": "Hyundai returned an unexpected response.",
+      "mfa_required": "Hyundai requested interactive verification. Direct SMS verification is not supported yet; see the integration documentation."
     },
-    "title": "Bluelink"
+    "abort": {
+      "already_configured": "This vehicle is already configured.",
+      "reauth_successful": "Bluelink credentials updated.",
+      "reconfigure_successful": "Bluelink configuration updated.",
+      "unique_id_mismatch": "The account does not contain the configured vehicle."
+    }
   },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Bluelink Integration",
-        "description": "Enter your Bluelink credentials.",
-        "data": {
-          "username": "Username (email)",
-          "password": "Password",
-          "pin": "PIN"
-        }
-      },       
-      "select_vehicle": {
-        "title": "Select Vehicle",
-        "description": "Select your vehicle from the list.",
-        "data": {
-          "vehicle": "Vehicle"
-        }
+  "entity": {
+    "climate": {
+      "climate": {
+        "name": "Climate control"
       }
     },
-    "error": {
-      "cannot_connect": "Failed to connect. Please check your credentials and try again.",
-      "invalid_auth": "Invalid authentication credentials",
-      "invalid_vehicle": "Invalid vehicle selection",
-      "unknown": "Unknown error occurred"
-    },
-    "title": "Bluelink"
-  } 
+    "switch": {
+      "climate_switch": {
+        "name": "Remote climate"
+      }
+    }
+  }
 }

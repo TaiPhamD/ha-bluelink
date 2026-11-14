@@ -1,0 +1,66 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Bluelink",
+        "description": "Enter your Hyundai USA account details. Your remote command PIN is separate from an SMS verification code.",
+        "data": {
+          "username": "Email address",
+          "password": "Password",
+          "pin": "Bluelink remote command PIN"
+        }
+      },
+      "select_vehicle": {
+        "title": "Select your vehicle",
+        "data": {
+          "vehicle": "Vehicle"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Sign in to Bluelink again",
+        "description": "Your saved credentials could not renew the token. Sign in with an account that contains the existing vehicle.",
+        "data": {
+          "username": "Email address",
+          "password": "Password",
+          "pin": "Bluelink remote command PIN"
+        }
+      },
+      "reconfigure": {
+        "title": "Update Bluelink credentials",
+        "description": "Update the account details for your existing vehicle.",
+        "data": {
+          "username": "Email address",
+          "password": "Password",
+          "pin": "Bluelink remote command PIN"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Unable to connect to Hyundai. Please try again.",
+      "invalid_auth": "Hyundai rejected the credentials. Check your email address and password.",
+      "invalid_vehicle": "Select a vehicle from the list.",
+      "no_vehicles": "No enrolled vehicles were found for this account.",
+      "vehicle_not_found": "The existing vehicle was not found in this account. Sign in with the account that owns it.",
+      "unknown": "Hyundai returned an unexpected response.",
+      "mfa_required": "Hyundai requested interactive verification. Direct SMS verification is not supported yet; see the integration documentation."
+    },
+    "abort": {
+      "already_configured": "This vehicle is already configured.",
+      "reauth_successful": "Bluelink credentials updated.",
+      "reconfigure_successful": "Bluelink configuration updated.",
+      "unique_id_mismatch": "The account does not contain the configured vehicle."
+    }
+  },
+  "entity": {
+    "climate": {
+      "climate": {
+        "name": "Climate control"
+      }
+    },
+    "switch": {
+      "climate_switch": {
+        "name": "Remote climate"
+      }
+    }
+  }
+}

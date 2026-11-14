@@ -1,80 +1,73 @@
-import logging
+"""Bluelink remote climate control."""
+
 from typing import Any
-from homeassistant.core import HomeAssistant
-from homeassistant.config_entries import ConfigEntry
+
 from homeassistant.components.climate import (
+    ATTR_HVAC_MODE,
     ClimateEntity,
     ClimateEntityFeature,
     HVACMode,
 )
-from homeassistant.const import TEMP_FAHRENHEIT, ATTR_TEMPERATURE
+from homeassistant.const import ATTR_TEMPERATURE, UnitOfTemperature
+from homeassistant.exceptions import ServiceValidationError
 
-from .utils import get_base_host
-from .const import DOMAIN
+from .entity import BluelinkEntity
 
-_LOGGER = logging.getLogger(__name__)
-
-
-async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities
-):
-    """Set up BluelinkClimateControl from a config entry."""
-    # Retrieve the existing instance of BluelinkClimateControl from hass.data
-    climate_entity = hass.data[DOMAIN][entry.entry_id]["climate"]
-    async_add_entities([climate_entity], True)
+PARALLEL_UPDATES = 1
 
 
-class BluelinkClimateControl(ClimateEntity):
-    def __init__(self, shared_data, vin):
-        self._shared_data = shared_data
-        self._temperature = self._shared_data.get_data()
-        self._attr_hvac_mode = HVACMode.HEAT_COOL  # Set default to 'auto' mode
-        self._attr_hvac_modes = [HVACMode.HEAT_COOL, HVACMode.OFF]
-        self._attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
-        # create unique identifier
-        self._unique_identifier = f"{vin}_bluelink_climate"
-        self._auto_off_timer = None
+async def async_setup_entry(hass, entry, async_add_entities):
+    async_add_entities([BluelinkClimateControl(entry.runtime_data)])
 
-    @property
-    def supported_features(self):
-        return self._attr_supported_features
 
-    @property
-    def hvac_modes(self):
-        return self._attr_hvac_modes
+class BluelinkClimateControl(BluelinkEntity, ClimateEntity):
+    _attr_translation_key = "climate"
+    _attr_native_temperature_unit = UnitOfTemperature.FAHRENHEIT
+    _attr_min_temp = 62
+    _attr_max_temp = 82
+    _attr_target_temperature_step = 1
+    _attr_hvac_modes = [HVACMode.HEAT_COOL, HVACMode.OFF]
+    _attr_supported_features = (
+        ClimateEntityFeature.TARGET_TEMPERATURE
+        | ClimateEntityFeature.TURN_ON
+        | ClimateEntityFeature.TURN_OFF
+    )
+
+    def __init__(self, runtime):
+        super().__init__(runtime)
+        # Preserve existing registry IDs and automations.
+        self._attr_unique_id = (
+            f"{runtime.entry.data['selected_vehicle_vin']}_bluelink_climate"
+        )
 
     @property
-    def temperature_unit(self):
-        return TEMP_FAHRENHEIT
+    def hvac_mode(self):
+        return HVACMode.HEAT_COOL if self._runtime.is_on else HVACMode.OFF
 
     @property
-    def current_temperature(self):
-        return self._shared_data.get_data()
+    def native_target_temperature(self):
+        return self._runtime.temperature
 
-    @property
-    def target_temperature(self):
-        # return self._temperature
-        return self._shared_data.get_data()
+    # Define legacy names only on Home Assistant versions before 2026.11.
+    if not hasattr(ClimateEntity, "native_target_temperature"):
+        _attr_temperature_unit = UnitOfTemperature.FAHRENHEIT
+        target_temperature = native_target_temperature
 
-    @property
-    def unique_id(self):
-        """Return a unique ID."""
-        return self._unique_identifier
+    async def async_set_temperature(self, **kwargs: Any):
+        if (temperature := kwargs.get(ATTR_TEMPERATURE)) is not None:
+            if not self.min_temp <= temperature <= self.max_temp:
+                raise ServiceValidationError("Temperature must be between 62 and 82 °F")
+            await self._runtime.store_data(temperature)
+        if ATTR_HVAC_MODE in kwargs:
+            await self.async_set_hvac_mode(kwargs[ATTR_HVAC_MODE])
 
-    @property
-    def name(self):
-        return "Bluelink Climate Control"
+    async def async_set_hvac_mode(self, hvac_mode):
+        if hvac_mode not in self.hvac_modes:
+            raise ServiceValidationError("Unsupported Bluelink HVAC mode")
+        await self._runtime.async_set_running(hvac_mode != HVACMode.OFF)
 
-    async def async_set_temperature(self, **kwargs: Any) -> None:
-        temperature = kwargs.get(ATTR_TEMPERATURE)
-        if temperature is not None:
-            self._temperature = temperature
-            await self._shared_data.store_data(temperature)
-            # asyncio.create_task(self._shared_data.store_data(temperature))
-            # _LOGGER.warning(f"set_temperature temp: {self._temperature}")
-            self.schedule_update_ha_state()
+    async def async_turn_on(self):
+        await self._runtime.async_set_running(True)
 
-    def set_hvac_mode(self, hvac_mode):
-        """Set new target HVAC mode."""
-        self._attr_hvac_mode = hvac_mode
-        self.schedule_update_ha_state()
+    async def async_turn_off(self):
+        await self._runtime.async_set_running(False)

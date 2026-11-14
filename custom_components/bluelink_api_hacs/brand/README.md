@@ -1,0 +1,1 @@
+The integration icon uses [car-defrost-front](https://github.com/Templarian/MaterialDesign/blob/master/svg/car-defrost-front.svg) from Pictogrammers Material Design Icons, colored blue. See LICENSE for the upstream licensing notice.

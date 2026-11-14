@@ -1,143 +1,147 @@
+"""Set up and repair Bluelink accounts through Home Assistant's UI."""
+
 import logging
+
+import requests
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.const import CONF_USERNAME, CONF_PASSWORD
-import homeassistant.helpers.config_validation as cv
+from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
+from homeassistant.helpers.selector import (
+    TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
+)
 
+from .bluelink_api import (
+    BluelinkAPI,
+    BluelinkAuthError,
+    BluelinkError,
+    BluelinkMFARequired,
+)
 from .const import DOMAIN
-from .bluelink_api import BluelinkAPI
 
 _LOGGER = logging.getLogger(__name__)
 
 LOGIN_DATA_SCHEMA = vol.Schema(
     {
-        vol.Required(CONF_USERNAME): cv.string,
-        vol.Required(CONF_PASSWORD): cv.string,
-        vol.Required("pin"): cv.string,
+        vol.Required(CONF_USERNAME): str,
+        vol.Required(CONF_PASSWORD): TextSelector(
+            TextSelectorConfig(type=TextSelectorType.PASSWORD)
+        ),
+        vol.Required("pin"): TextSelector(
+            TextSelectorConfig(type=TextSelectorType.PASSWORD)
+        ),
     }
 )
 
 
-class BluelinkFlowBase:
+def _authenticate(credentials):
+    """Keep session creation and all network I/O off the event loop."""
+    api = BluelinkAPI(
+        credentials[CONF_USERNAME], credentials[CONF_PASSWORD], credentials["pin"]
+    )
+    try:
+        api.login()
+        vehicles = api.get_vehicles(api.get_enrollment_details())
+        return api.auth, vehicles
+    finally:
+        api.close()
+
+
+class BluelinkConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """One entry per VIN; reauthentication preserves that vehicle."""
+
+    VERSION = 1
+
+    def __init__(self):
+        self._credentials = {}
+        self._vehicles = []
+        self._entry = None
+
+    async def async_step_user(self, user_input=None):
+        return await self._credentials_step("user", user_input)
+
+    async def async_step_reauth(self, entry_data):
+        self._entry = self._get_reauth_entry()
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(self, user_input=None):
+        return await self._credentials_step("reauth_confirm", user_input)
+
+    async def async_step_reconfigure(self, user_input=None):
+        self._entry = self._get_reconfigure_entry()
+        return await self._credentials_step("reconfigure", user_input)
+
+    async def _credentials_step(self, step_id, user_input):
+        errors = {}
+        if user_input is not None:
+            try:
+                auth, self._vehicles = await self.hass.async_add_executor_job(
+                    _authenticate, user_input
+                )
+            except BluelinkMFARequired:
+                errors["base"] = "mfa_required"
+            except BluelinkAuthError:
+                errors["base"] = "invalid_auth"
+            except (requests.RequestException, BluelinkError):
+                errors["base"] = "cannot_connect"
+            except Exception:
+                # Do not log API responses, credentials, or token contents.
+                _LOGGER.error("Unexpected response while authenticating with Bluelink")
+                errors["base"] = "unknown"
+            else:
+                self._credentials = {**user_input, "auth": auth}
+                if not self._vehicles:
+                    errors["base"] = "no_vehicles"
+                elif self._entry is not None:
+                    vin = self._entry.data["selected_vehicle_vin"]
+                    vehicle = next((v for v in self._vehicles if v["vin"] == vin), None)
+                    if vehicle is None:
+                        errors["base"] = "vehicle_not_found"
+                    else:
+                        await self.async_set_unique_id(vin)
+                        self._abort_if_unique_id_mismatch()
+                        return self.async_update_reload_and_abort(
+                            self._entry,
+                            data_updates=self._vehicle_data(vehicle),
+                        )
+                else:
+                    return await self.async_step_select_vehicle()
+        schema = LOGIN_DATA_SCHEMA
+        if self._entry is not None:
+            schema = self.add_suggested_values_to_schema(
+                schema, {CONF_USERNAME: self._entry.data[CONF_USERNAME]}
+            )
+        return self.async_show_form(step_id=step_id, data_schema=schema, errors=errors)
+
+    def _vehicle_data(self, vehicle):
+        return self._credentials | {
+            "selected_vehicle_vin": vehicle["vin"],
+            "selected_vehicle_reg_id": vehicle["reg_id"],
+            "vehicle_name": vehicle["nickname"],
+        }
+
     async def async_step_select_vehicle(self, user_input=None):
         errors = {}
-
         if user_input is not None:
-            # Find the vehicle corresponding to the selected VIN
-            selected_vehicle = next(
-                (v for v in self.vehicles if v["vin"] == user_input["vehicle"]), None
+            vehicle = next(
+                (v for v in self._vehicles if v["vin"] == user_input["vehicle"]), None
             )
-
-            if selected_vehicle:
-                # Combine user input data with selected vehicle data
-                config_data = {
-                    **self.user_input_data,
-                    "selected_vehicle_vin": selected_vehicle["vin"],
-                    "selected_vehicle_reg_id": selected_vehicle["reg_id"],
-                }
-                if self.check_unique is True:
-                    # Check if a configuration entry for this VIN already exists
-                    errors["base"] = "already_configured"
-                    await self.async_set_unique_id(selected_vehicle["vin"])
-                    self._abort_if_unique_id_configured()
-                    errors = {}
-
+            if vehicle is not None:
+                await self.async_set_unique_id(vehicle["vin"])
+                self._abort_if_unique_id_configured()
                 return self.async_create_entry(
-                    title="Bluelink Integration", data=config_data
+                    title=vehicle["nickname"], data=self._vehicle_data(vehicle)
                 )
-
             errors["base"] = "invalid_vehicle"
-
-        vehicles_options = {v["vin"]: v["nickname"] for v in self.vehicles}
         return self.async_show_form(
             step_id="select_vehicle",
             data_schema=vol.Schema(
                 {
-                    vol.Required(
-                        "vehicle", default=list(vehicles_options.keys())[0]
-                    ): vol.In(vehicles_options)
+                    vol.Required("vehicle"): vol.In(
+                        {v["vin"]: v["nickname"] for v in self._vehicles}
+                    )
                 }
             ),
             errors=errors,
         )
-
-    async def handle_login_and_vehicle_selection(self, user_input, step_id):
-        """Handle the login and vehicle selection process."""
-        errors = {}
-        bluelink_api = BluelinkAPI(
-            username=user_input[CONF_USERNAME],
-            password=user_input[CONF_PASSWORD],
-            pin=user_input["pin"],
-        )
-
-        try:
-            auth = await self.hass.async_add_executor_job(bluelink_api.login)
-            details = await self.hass.async_add_executor_job(
-                bluelink_api.get_enrollment_details
-            )
-            self.vehicles = bluelink_api.get_vehicles(details)
-            self.user_input_data = {**user_input, "auth": auth}
-            return await self.async_step_select_vehicle(user_input=None)
-        except Exception as e:
-            _LOGGER.error(f"Error connecting to Bluelink API: {e}")
-            errors["base"] = "cannot_connect"
-            return self.async_show_form(
-                step_id=step_id, data_schema=LOGIN_DATA_SCHEMA, errors=errors
-            )
-
-
-class BluelinkOptionsFlowHandler(BluelinkFlowBase, config_entries.OptionsFlow):
-    def __init__(self, config_entry):
-        self.config_entry = config_entry
-        self.vehicles = []  # Initialize vehicles
-        self.user_input_data = {**config_entry.data}  # Initialize with existing config
-        self.check_unique = False
-
-    async def async_step_init(self, user_input=None):
-        """Handle the initial step in the options flow."""
-        if user_input is not None:
-            # we are updating an existing entity so set initial=false
-            result = await self.handle_login_and_vehicle_selection(
-                user_input, step_id="init"
-            )
-            # Check if the flow has completed successfully
-            if result.get("type") == "create_entry":
-                # Update the configuration entry with the new data
-                self.hass.config_entries.async_update_entry(
-                    self.config_entry, data={**self.user_input_data, **user_input}
-                )
-
-                # Unload and reload the integration to apply the new configuration
-                await self.hass.config_entries.async_reload(self.config_entry.entry_id)
-
-                return self.async_abort(reason="options_updated")
-
-            return result
-
-        # If there's no user input, show the initial form
-        return self.async_show_form(
-            step_id="init",
-            data_schema=LOGIN_DATA_SCHEMA,  # Adjust this schema as per your options
-        )
-
-
-class BluelinkConfigFlow(BluelinkFlowBase, config_entries.ConfigFlow, domain=DOMAIN):
-    VERSION = 1
-
-    def __init__(self):
-        self.vehicles = None  # Store vehicles data
-        self.user_input_data = None  # Store user input data from the first step
-        self.check_unique = True  # Default value for check_unique
-
-    async def async_step_user(self, user_input=None):
-        if user_input is not None:
-            self.check_unique = True
-            return await self.handle_login_and_vehicle_selection(
-                user_input, step_id="user"
-            )
-        return self.async_show_form(step_id="user", data_schema=LOGIN_DATA_SCHEMA)
-
-    @staticmethod
-    def async_get_options_flow(config_entry):
-        """Get the options flow for this handler."""
-        return BluelinkOptionsFlowHandler(config_entry)

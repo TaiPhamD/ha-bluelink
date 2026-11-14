@@ -1,203 +1,227 @@
-import logging
-from typing import Any
-from .const import DOMAIN, BASE_URL
+"""Synchronous client for Hyundai's USA telematics API.
 
-_LOGGER = logging.getLogger(__name__)
+Construct and call this client in Home Assistant's executor, including SSL setup.
+"""
+
+import ssl
+import time
+from copy import deepcopy
 
 import requests
-import urllib3
-import ssl
+from requests.adapters import HTTPAdapter
+from urllib3 import PoolManager
 
-import json
-import time
+from .const import BASE_URL
+
+REQUEST_TIMEOUT = 30
 
 
-class CustomHttpAdapter(requests.adapters.HTTPAdapter):
-    # "Transport adapter" that allows us to use custom ssl_context.
+class BluelinkError(Exception):
+    """The server rejected a request or returned an invalid response."""
 
-    def __init__(self, ssl_context=None, **kwargs):
-        self.ssl_context = ssl_context
-        super().__init__(**kwargs)
 
-    def init_poolmanager(self, connections, maxsize, block=False):
-        self.poolmanager = urllib3.poolmanager.PoolManager(
+class BluelinkAuthError(BluelinkError):
+    """The account needs to authenticate again."""
+
+
+class BluelinkMFARequired(BluelinkAuthError):
+    """Hyundai requested an interactive challenge instead of an API token."""
+
+
+class CustomHttpAdapter(HTTPAdapter):
+    """Keep certificate verification while supporting Hyundai's legacy TLS."""
+
+    def init_poolmanager(self, connections, maxsize, block=False, **kwargs):
+        context = ssl.create_default_context()
+        context.options |= getattr(ssl, "OP_LEGACY_SERVER_CONNECT", 0x4)
+        self.poolmanager = PoolManager(
             num_pools=connections,
             maxsize=maxsize,
             block=block,
-            ssl_context=self.ssl_context,
+            ssl_context=context,
+            **kwargs,
         )
 
 
-def get_legacy_session():
-    ctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
-    ctx.options |= 0x4  # OP_LEGACY_SERVER_CONNECT
-    session = requests.session()
-    session.mount("https://", CustomHttpAdapter(ctx))
-    return session
-
-
 class BluelinkAPI:
+    """Manage credentials, token renewal, and remote climate commands."""
+
     def __init__(self, username, password, pin, auth=None):
         self._client_id = "m66129Bb-em93-SPAHYN-bZ91-am4540zp19920"
         self._client_secret = "v558o935-6nne-423i-baa8"
-        self._session = get_legacy_session()
+        self._session = requests.Session()
+        self._session.mount(BASE_URL, CustomHttpAdapter())
         self._username = username
         self._password = password
         self._pin = pin
-        self._auth = auth
+        # Config entry data must never be mutated by the executor thread.
+        self._auth = deepcopy(auth or {})
 
-    def login(self):
-        url = f"{BASE_URL}/v2/ac/oauth/token"
-        headers = {
+    @property
+    def auth(self):
+        """Return a snapshot suitable for saving in a config entry."""
+        return deepcopy(self._auth)
+
+    def close(self):
+        """Release connections."""
+        self._session.close()
+
+    def _headers(self):
+        return {
+            "client_id": self._client_id,
             "clientId": self._client_id,
             "clientSecret": self._client_secret,
+            "User-Agent": "okhttp/3.12.0",
             "Content-Type": "application/json",
+            "from": "SPA",
+            "to": "ISS",
+            "brandIndicator": "H",
         }
-        payload = {"username": self._username, "password": self._password}
-        response = self._session.post(url, headers=headers, json=payload)
+
+    def _request(self, method, path, **kwargs):
+        response = self._session.request(
+            method, f"{BASE_URL}{path}", timeout=REQUEST_TIMEOUT, **kwargs
+        )
+        if response.status_code in (401, 403):
+            raise BluelinkAuthError("Hyundai rejected the credentials or token")
         response.raise_for_status()
+        return response
 
-        data = response.json()
-        expires_in = data.get("expires_in")
-        # Convert expires_in from string to int and calculate the expiry time
-        expires_in_duration = int(expires_in) if expires_in.isdigit() else 0
-        expires_at = int(time.time() + expires_in_duration)
+    @staticmethod
+    def _json(response):
+        try:
+            data = response.json()
+        except ValueError as err:
+            raise BluelinkError("Hyundai returned an invalid response") from err
+        if not isinstance(data, dict):
+            raise BluelinkError("Hyundai returned an invalid response")
+        if data.get("errorCode"):
+            if str(data["errorCode"]) in {"401", "403"}:
+                raise BluelinkAuthError("Hyundai rejected the credentials or token")
+            raise BluelinkError("Hyundai reported an API error")
+        return data
 
-        auth = {
-            "access_token": data["access_token"],
-            "refresh_token": data["refresh_token"],
-            "expires_in": data["expires_in"],
-            "expires_at": expires_at,
-            "username": data["username"],
-            "pin": self._pin,
-        }
-
-        self._auth = auth
-        return auth
-
-    def get_vehicles(self, enrollment_details):
-        vehicles = []
-        for vehicle in enrollment_details["enrolledVehicleDetails"]:
-            data = {
-                "vin": vehicle["vehicleDetails"]["vin"],
-                "reg_id": vehicle["vehicleDetails"]["regid"],
-                "nickname": vehicle["vehicleDetails"]["nickName"],
-                "gen": vehicle["vehicleDetails"]["vehicleGeneration"],
+    def _store_auth(self, data):
+        if not data.get("access_token") and (
+            data.get("password_token") or data.get("mfa_token")
+        ):
+            raise BluelinkMFARequired("Hyundai requires interactive verification")
+        if not data.get("access_token"):
+            raise BluelinkAuthError("Login did not return an access token")
+        try:
+            duration = float(data["expires_in"])
+            if duration <= 0:
+                raise ValueError
+        except (KeyError, TypeError, ValueError) as err:
+            raise BluelinkError("Invalid token expiration returned by Hyundai") from err
+        self._auth.update(
+            {
+                "access_token": data["access_token"],
+                "refresh_token": data.get(
+                    "refresh_token", self._auth.get("refresh_token")
+                ),
+                "expires_in": duration,
+                "expires_at": time.time() + duration,
+                "username": data.get("username", self._username),
+                "pin": self._pin,
             }
-            vehicles.append(data)
-        return vehicles
+        )
+        return self.auth
+
+    def login(self):
+        """Authenticate using the USA telematics endpoint."""
+        response = self._request(
+            "POST",
+            "/v2/ac/oauth/token",
+            headers=self._headers(),
+            json={"username": self._username, "password": self._password},
+        )
+        return self._store_auth(self._json(response))
+
+    def ensure_authenticated(self):
+        """Refresh expired tokens, falling back to password authentication."""
+        if (
+            self._auth.get("access_token")
+            and time.time() < self._auth.get("expires_at", 0) - 60
+        ):
+            return self.auth
+        if self._auth.get("refresh_token"):
+            try:
+                response = self._request(
+                    "POST",
+                    "/v2/ac/oauth/token",
+                    headers=self._headers(),
+                    json={
+                        "username": self._username,
+                        "password": self._password,
+                        "grant_type": "refresh_token",
+                        "refresh_token": self._auth["refresh_token"],
+                    },
+                )
+                return self._store_auth(self._json(response))
+            except (BluelinkAuthError, BluelinkError):
+                pass
+            except requests.HTTPError as err:
+                if err.response is None or err.response.status_code != 400:
+                    raise
+        return self.login()
 
     def get_enrollment_details(self):
-        url = f"{BASE_URL}/ac/v2/enrollment/details/{self._auth['username']}"
-        headers = {
-            "access_token": self._auth["access_token"],
-            "User-Agent": "okhttp/3.12.0",
-            "client_id": self._client_id,
-            "includeNonConnectedVehicles": "Y",
-            "Host": "api.telematics.hyundaiusa.com",
-        }
-        response = self._session.get(url, headers=headers)
-        response.raise_for_status()
+        self.ensure_authenticated()
+        headers = self._headers() | {"access_token": self._auth["access_token"]}
+        return self._json(
+            self._request(
+                "GET", f"/ac/v2/enrollment/details/{self._username}", headers=headers
+            )
+        )
 
-        return response.json()
+    @staticmethod
+    def get_vehicles(enrollment_details):
+        return [
+            {
+                "vin": details["vin"],
+                "reg_id": details["regid"],
+                "nickname": details.get("nickName") or details["vin"],
+                "gen": details.get("vehicleGeneration"),
+            }
+            for item in enrollment_details.get("enrolledVehicleDetails", [])
+            if (details := item.get("vehicleDetails"))
+        ]
 
     def store_vehicle_info(self, vin, reg_id):
-        self._auth["vin"] = vin
-        self._auth["reg_id"] = reg_id
-
-    def _refresh_token(self):
-        url = f"{BASE_URL}/v2/ac/oauth/token/refresh"
-        headers = {
-            "User-Agent": "okhttp/3.12.0",
-            "client_secret": self._client_secret,
-            "client_id": self._client_id,
-            "Content-Type": "application/json",
-        }
-        payload = {"refresh_token": self._auth["refresh_token"]}
-        response = self._session.post(url, headers=headers, json=payload)
-
-        if response.status_code != 200:
-            _LOGGER.warning(f"Error refreshing token: {response.status_code}")
-            return None
-
-        data = response.json()
-        expires_in = data.get("expires_in")
-        # Convert expires_in from string to int and calculate the expiry time
-        expires_in_duration = int(expires_in) if expires_in.isdigit() else 0
-        expires_at = int(time.time() + expires_in_duration)
-        self._auth["access_token"] = data["access_token"]
-        self._auth["refresh_token"] = data["refresh_token"]
-        self._auth["expires_in"] = data["expires_in"]
-        self._auth["expires_at"] = expires_at
-
-    def _token_expired(self):
-        """Check if the access token has expired"""
-        return time.time() >= self._auth.get("expires_at", 0) - 5
-
-    def _refresh_token_if_needed(self):
-        """Refresh the token if it is about to expire. If refresh fails, attempt a full login."""
-        if self._token_expired():
-            previous_expires_at = self._auth.get("expires_at", 0)
-            self._refresh_token()
-            if (
-                self._auth.get("expires_at", 0) <= previous_expires_at
-            ):  # Check if expires_at was not updated
-                # Attempt a full re-login if the refresh token did not update 'expires_at'
-                self._auth = self.login()
-                if (
-                    self._token_expired()
-                ):  # Check again if the token is still expired after re-login
-                    _LOGGER.warning("Error: Unable to refresh token or re-login.")
-                    return False
-        return True
+        self._auth.update(vin=vin, reg_id=reg_id)
 
     def _set_request_headers(self):
-        return {
+        return self._headers() | {
             "access_token": self._auth["access_token"],
-            "client_id": self._client_id,
-            "User-Agent": "okhttp/3.12.0",
-            "Host": "api.telematics.hyundaiusa.com",
             "registrationId": self._auth["reg_id"],
             "VIN": self._auth["vin"],
             "APPCLOUD-VIN": self._auth["vin"],
             "Language": "0",
-            "to": "ISS",
             "encryptFlag": "false",
-            "from": "SPA",
-            "brandIndicator": "H",
-            "bluelinkservicepin": self._auth["pin"],
+            "bluelinkservicepin": self._pin,
             "offset": "-4",
-            "Content-Type": "application/json",
         }
+
+    def _command(self, path, **kwargs):
+        self.ensure_authenticated()
+        response = self._request(
+            "POST", path, headers=self._set_request_headers(), **kwargs
+        )
+        # Commands may return HTTP 200 with an empty body.
+        if response.content:
+            self._json(response)
 
     def start_climate(self, temp=72):
-        if not self._refresh_token_if_needed():
-            _LOGGER.warning("Authentication failed. Unable to start climate control.")
-
-        url = f"{BASE_URL}/ac/v2/evc/fatc/start"
-        headers = self._set_request_headers()
-        payload = {
-            "airCtrl": 1,
-            "airTemp": {"value": str(temp), "unit": 1},
-            "heating1": 0,
-            "defrost": False,
-        }
-        response = self._session.post(url, headers=headers, json=payload)
-
-        if response.status_code != 200:
-            _LOGGER.warning(f"Error starting climate control: {response.status_code}")
-            return None
-
-        return response
+        self._command(
+            "/ac/v2/evc/fatc/start",
+            json={
+                "airCtrl": 1,
+                "airTemp": {"value": str(temp), "unit": 1},
+                "heating1": 0,
+                "defrost": False,
+            },
+        )
 
     def stop_climate(self):
-        if not self._refresh_token_if_needed():
-            _LOGGER.warning("Authentication failed. Unable to stop climate control.")
-
-        url = f"{BASE_URL}/ac/v2/evc/fatc/stop"
-        headers = self._set_request_headers()
-        response = self._session.post(url, headers=headers)
-        if response.status_code != 200:
-            _LOGGER.warning(f"Error stopping climate control: {response.status_code}")
-            return None
-        return response
+        self._command("/ac/v2/evc/fatc/stop")
