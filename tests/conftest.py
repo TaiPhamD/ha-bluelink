@@ -3,6 +3,9 @@
 from unittest.mock import Mock
 
 import pytest
+from homeassistant.util import dt as dt_util
+
+from custom_components.bluelink_api_hacs.vehicle_status import VehicleStatus
 
 pytest_plugins = ["pytest_homeassistant_custom_component"]
 
@@ -37,7 +40,16 @@ def vehicle():
 
 
 @pytest.fixture
-def api(auth):
+def status():
+    return VehicleStatus(False, False, 78, False, dt_util.utcnow(), 72)
+
+
+@pytest.fixture
+def api(auth, status):
     client = Mock()
     client.auth = auth
+    client.get_vehicle_status.return_value = status
+    client.start_climate.return_value = "transaction"
+    client.stop_climate.return_value = "transaction"
+    client.check_action_status.return_value = "succeeded"
     return client

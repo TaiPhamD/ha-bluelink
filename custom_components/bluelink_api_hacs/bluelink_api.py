@@ -12,6 +12,7 @@ from requests.adapters import HTTPAdapter
 from urllib3 import PoolManager
 
 from .const import BASE_URL
+from .vehicle_status import VehicleStatus
 
 REQUEST_TIMEOUT = 30
 
@@ -188,12 +189,15 @@ class BluelinkAPI:
             if (details := item.get("vehicleDetails"))
         ]
 
-    def store_vehicle_info(self, vin, reg_id):
-        self._auth.update(vin=vin, reg_id=reg_id)
+    def store_vehicle_info(self, vin, reg_id, generation="2"):
+        self._auth.update(vin=vin, reg_id=reg_id, generation=str(generation))
 
     def _set_request_headers(self):
         return self._headers() | {
             "access_token": self._auth["access_token"],
+            "accessToken": self._auth["access_token"],
+            "username": self._username,
+            "gen": self._auth.get("generation", "2"),
             "registrationId": self._auth["reg_id"],
             "VIN": self._auth["vin"],
             "APPCLOUD-VIN": self._auth["vin"],
@@ -211,9 +215,18 @@ class BluelinkAPI:
         # Commands may return HTTP 200 with an empty body.
         if response.content:
             self._json(response)
+        return next(
+            (
+                response.headers[key]
+                for key in ("tmsTid", "transactionId", "Xid")
+                if isinstance(response.headers.get(key), str)
+                and response.headers[key].strip()
+            ),
+            None,
+        )
 
     def start_climate(self, temp=72):
-        self._command(
+        return self._command(
             "/ac/v2/evc/fatc/start",
             json={
                 "airCtrl": 1,
@@ -224,4 +237,34 @@ class BluelinkAPI:
         )
 
     def stop_climate(self):
-        self._command("/ac/v2/evc/fatc/stop")
+        return self._command("/ac/v2/evc/fatc/stop")
+
+    def get_vehicle_status(self, refresh=False):
+        """Read Hyundai's cache; only explicitly requested refreshes wake the car."""
+        self.ensure_authenticated()
+        headers = self._set_request_headers()
+        if refresh:
+            headers["REFRESH"] = "true"
+        data = self._json(
+            self._request("GET", "/ac/v2/rcs/rvs/vehicleStatus", headers=headers)
+        )
+        status = data.get("vehicleStatus")
+        if not isinstance(status, dict):
+            raise BluelinkError("Hyundai returned no vehicle status")
+        return VehicleStatus.from_response(status)
+
+    def check_action_status(self, transaction_id):
+        """Read command completion independently of cached vehicle telemetry."""
+        self.ensure_authenticated()
+        headers = self._set_request_headers() | {
+            "tid": transaction_id,
+            "login_id": self._username,
+            "service_type": "REMOTE_POLL",
+        }
+        response = self._request("GET", "/ac/v2/rmt/getRunningStatus", headers=headers)
+        if not response.content:
+            return "pending"
+        status = self._json(response).get("status")
+        if not isinstance(status, str):
+            return "pending"
+        return {"SUCCESS": "succeeded", "ERROR": "failed"}.get(status, "pending")

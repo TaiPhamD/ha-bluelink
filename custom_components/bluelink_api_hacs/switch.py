@@ -25,6 +25,10 @@ class BluelinkClimateSwitch(BluelinkEntity, SwitchEntity):
     def is_on(self):
         return self._runtime.is_on
 
+    @property
+    def assumed_state(self):
+        return self._runtime.is_stale
+
     async def async_turn_on(self, **kwargs):
         await self._runtime.async_set_running(True)
 

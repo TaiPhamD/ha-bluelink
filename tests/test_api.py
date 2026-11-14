@@ -14,7 +14,9 @@ from custom_components.bluelink_api_hacs.bluelink_api import (
 
 
 def response(data=None, status=200):
-    result = Mock(status_code=status, content=b"json" if data is not None else b"")
+    result = Mock(
+        status_code=status, content=b"json" if data is not None else b"", headers={}
+    )
     result.json.return_value = data
     if status >= 400:
         result.raise_for_status.side_effect = requests.HTTPError(response=result)
@@ -133,3 +135,47 @@ def test_auth_probe_redacts_all_values():
     assert "private@example.com" not in report
     assert "hidden" not in report
     assert "access_token" in report
+
+
+@pytest.mark.parametrize("header", ["tmsTid", "transactionId", "Xid"])
+def test_command_returns_tracking_id(client, auth, header):
+    client._auth = auth
+    client.store_vehicle_info("vin", "reg")
+    result = response()
+    result.headers = {header: "transaction"}
+    client._session.request.return_value = result
+    assert client.start_climate() == "transaction"
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("SUCCESS", "succeeded"),
+        ("ERROR", "failed"),
+        ("PENDING", "pending"),
+        (None, "pending"),
+    ],
+)
+def test_command_status_protocol(client, auth, raw, expected):
+    client._auth = auth
+    client.store_vehicle_info("vin", "reg")
+    client._session.request.return_value = response({"status": raw})
+    assert client.check_action_status("transaction") == expected
+    headers = client._session.request.call_args.kwargs["headers"]
+    assert headers["tid"] == "transaction"
+    assert headers["service_type"] == "REMOTE_POLL"
+
+
+@pytest.mark.parametrize("refresh", [False, True])
+def test_vehicle_status_protocol(client, auth, refresh):
+    client._auth = auth
+    client.store_vehicle_info("vin", "reg", "3")
+    client._session.request.return_value = response(
+        {"vehicleStatus": {"airCtrlOn": False}}
+    )
+    assert client.get_vehicle_status(refresh).climate_on is False
+    args, kwargs = client._session.request.call_args
+    assert args[1].endswith("/rcs/rvs/vehicleStatus")
+    assert (kwargs["headers"].get("REFRESH") == "true") is refresh
+    assert kwargs["headers"]["gen"] == "3"
+    assert kwargs["headers"]["accessToken"] == auth["access_token"]

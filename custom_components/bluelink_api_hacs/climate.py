@@ -42,7 +42,27 @@ class BluelinkClimateControl(BluelinkEntity, ClimateEntity):
 
     @property
     def hvac_mode(self):
+        if self._runtime.is_on is None:
+            return None
         return HVACMode.HEAT_COOL if self._runtime.is_on else HVACMode.OFF
+
+    @property
+    def assumed_state(self):
+        return self._runtime.is_stale
+
+    @property
+    def extra_state_attributes(self):
+        runtime = self._runtime
+        return super().extra_state_attributes | {
+            "command_status": runtime.command_status,
+            "command_in_progress": runtime.busy,
+            "command_error": runtime.command_error,
+            "next_command_available": runtime.cooldown_until,
+            "temperature_applies_to": "next_start",
+            "reported_target_temperature": runtime.status.reported_temperature
+            if runtime.status
+            else None,
+        }
 
     @property
     def native_target_temperature(self):

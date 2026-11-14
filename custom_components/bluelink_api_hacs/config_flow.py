@@ -119,6 +119,7 @@ class BluelinkConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             "selected_vehicle_vin": vehicle["vin"],
             "selected_vehicle_reg_id": vehicle["reg_id"],
             "vehicle_name": vehicle["nickname"],
+            "vehicle_generation": vehicle.get("gen") or "2",
         }
 
     async def async_step_select_vehicle(self, user_input=None):

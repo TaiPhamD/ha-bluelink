@@ -61,6 +61,58 @@
       "climate_switch": {
         "name": "Remote climate"
       }
+    },
+    "sensor": {
+      "battery_level": {
+        "name": "Vehicle battery"
+      },
+      "vehicle_updated_at": {
+        "name": "Vehicle last updated"
+      },
+      "reported_target_temperature": {
+        "name": "Reported climate target"
+      },
+      "command_status": {
+        "name": "Last climate command",
+        "state": {
+          "idle": "No command sent",
+          "sending": "Sending to Hyundai",
+          "accepted": "Accepted by Hyundai",
+          "pending": "Waiting for vehicle",
+          "succeeded": "Completed",
+          "failed": "Failed",
+          "timed_out": "Completion timed out",
+          "unconfirmed": "Completion unconfirmed",
+          "authentication_required": "Sign in required"
+        }
+      },
+      "vehicle_feedback": {
+        "name": "Vehicle feedback",
+        "state": {
+          "current": "Current",
+          "stale": "Stale or unreachable",
+          "never_received": "Waiting for first update"
+        }
+      },
+      "next_command_available": {
+        "name": "Next command available"
+      }
+    },
+    "binary_sensor": {
+      "charging": {
+        "name": "Charging"
+      },
+      "defrost_on": {
+        "name": "Defrost"
+      }
+    },
+    "button": {
+      "refresh_cached_status": {
+        "name": "Refresh cached status"
+      },
+      "request_vehicle_update": {
+        "name": "Request fresh vehicle status"
+      }
     }
   }
 }

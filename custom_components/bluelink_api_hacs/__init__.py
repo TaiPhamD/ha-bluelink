@@ -9,7 +9,13 @@ from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from .bluelink_api import BluelinkAPI, BluelinkAuthError, BluelinkError
 from .shared_data import SharedData
 
-PLATFORMS = [Platform.CLIMATE, Platform.SWITCH]
+PLATFORMS = [
+    Platform.CLIMATE,
+    Platform.SWITCH,
+    Platform.SENSOR,
+    Platform.BINARY_SENSOR,
+    Platform.BUTTON,
+]
 type BluelinkConfigEntry = ConfigEntry[SharedData]
 
 
@@ -17,7 +23,9 @@ def _create_client(data):
     api = BluelinkAPI(data["username"], data["password"], data["pin"], data.get("auth"))
     try:
         api.store_vehicle_info(
-            data["selected_vehicle_vin"], data["selected_vehicle_reg_id"]
+            data["selected_vehicle_vin"],
+            data["selected_vehicle_reg_id"],
+            data.get("vehicle_generation", "2"),
         )
         api.ensure_authenticated()
     except Exception:
@@ -37,11 +45,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: BluelinkConfigEntry) -> 
     runtime = entry.runtime_data = SharedData(hass, entry, api)
     try:
         await runtime.load_data()
+        await runtime.async_initialize()
         runtime.save_auth()
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     except Exception:
-        runtime.close()
-        await hass.async_add_executor_job(api.close)
+        await runtime.async_close()
         raise
     return True
 
@@ -49,6 +57,5 @@ async def async_setup_entry(hass: HomeAssistant, entry: BluelinkConfigEntry) -> 
 async def async_unload_entry(hass: HomeAssistant, entry: BluelinkConfigEntry) -> bool:
     """Unload platforms and cancel pending callbacks."""
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
-        entry.runtime_data.close()
-        await hass.async_add_executor_job(entry.runtime_data.api.close)
+        await entry.runtime_data.async_close()
     return unload_ok
